@@ -48,7 +48,7 @@ namespace VelidaMessagr.Functions
                     var jsonPayload = JsonConvert.SerializeObject(reading);
                     var message = new Message(Encoding.UTF8.GetBytes(jsonPayload));
                     await _topicClient.SendAsync(message);
-                    _logger.LogInformation($"Sending message: {message.Body}");
+                    _logger.LogInformation($"Sending message: {jsonPayload}");
                 }
 
                 result = new OkResult();

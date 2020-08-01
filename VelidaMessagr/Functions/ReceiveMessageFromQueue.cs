@@ -16,7 +16,7 @@ namespace VelidaMessagr.Functions
         }
 
         [FunctionName("ReceiveMessageFromQueue")]
-        public void Run([QueueTrigger("velidaqueue", Connection = "StorageConnectionString")]string myQueueItem)
+        public void Run([QueueTrigger("velidaqueue", Connection = "StorageConnectionString")] string myQueueItem)
         {
             _logger.LogInformation($"Queue item processed: {myQueueItem}");
         }

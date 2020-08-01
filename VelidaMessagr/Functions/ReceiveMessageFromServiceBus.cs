@@ -6,13 +6,14 @@ using Microsoft.Azure.ServiceBus;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Host;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 
 namespace VelidaMessagr.Functions
 {
     public class ReceiveMessageFromServiceBus
     {
         private readonly ILogger<ReceiveMessageFromServiceBus> _logger;
-        
+
 
         public ReceiveMessageFromServiceBus(
             ILogger<ReceiveMessageFromServiceBus> logger)
@@ -21,10 +22,12 @@ namespace VelidaMessagr.Functions
         }
 
         [FunctionName("ReceiveMessageFromServiceBus")]
-        public void Run([ServiceBusTrigger("velidatopic", "velidasubscripion", Connection = "ServiceBusConnectionString")]string mySbMsg)
+        public void Run([ServiceBusTrigger("velidatopic", "velidasubscripion", Connection = "ServiceBusConnectionString")] string mySbMsg)
         {
-            _logger.LogInformation($"Message processed: {mySbMsg}");
+            Message message = new Message(Encoding.UTF8.GetBytes(mySbMsg));
+            var jsonPayload = JsonConvert.SerializeObject(message.Body);
+            _logger.LogInformation($"Message processed: {jsonPayload}");
         }
-      
+
     }
 }
