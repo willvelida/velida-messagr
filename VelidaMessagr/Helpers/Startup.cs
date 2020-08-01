@@ -31,9 +31,13 @@ namespace VelidaMessagr.Helpers
 
             builder.Services.AddSingleton<IConfiguration>(config);
 
+            // Setting up our Topic Client
             builder.Services.AddSingleton(s => new TopicClient(config["ServiceBusConnectionString"], config["TopicName"]));
+
+            // Setting up our Subscription client
             builder.Services.AddSingleton(s => new SubscriptionClient(config["ServiceBusConnectionString"], config["TopicName"], config["SubscriptionName"]));
 
+            // Setting up our Cloud Storage Queue Client
             var storageAccount = CloudStorageAccount.Parse(config["StorageConnectionString"]);
             builder.Services.AddSingleton((s) => storageAccount.CreateCloudQueueClient());
         }
