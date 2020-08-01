@@ -1,16 +1,30 @@
 using System;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Azure.ServiceBus;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Host;
 using Microsoft.Extensions.Logging;
 
 namespace VelidaMessagr.Functions
 {
-    public static class ReceiveMessageFromServiceBus
+    public class ReceiveMessageFromServiceBus
     {
-        [FunctionName("ReceiveMessageFromServiceBus")]
-        public static void Run([ServiceBusTrigger("mytopic", "mysubscription", Connection = "")]string mySbMsg, ILogger log)
+        private readonly ILogger<ReceiveMessageFromServiceBus> _logger;
+        
+
+        public ReceiveMessageFromServiceBus(
+            ILogger<ReceiveMessageFromServiceBus> logger)
         {
-            log.LogInformation($"C# ServiceBus topic trigger function processed message: {mySbMsg}");
+            _logger = logger;
         }
+
+        [FunctionName("ReceiveMessageFromServiceBus")]
+        public void Run([ServiceBusTrigger("velidatopic", "velidasubscripion", Connection = "ServiceBusConnectionString")]string mySbMsg)
+        {
+            _logger.LogInformation($"Message processed: {mySbMsg}");
+        }
+      
     }
 }

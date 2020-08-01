@@ -7,29 +7,65 @@ using Microsoft.Azure.WebJobs.Extensions.Http;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using Microsoft.Azure.Storage.Queue;
+using VelidaMessagr.Models;
+using Bogus;
+using Microsoft.Extensions.Configuration;
+using System.Collections.Generic;
 
 namespace VelidaMessagr.Functions
 {
-    public static class PostMessageToQueue
+    public class PostMessageToQueue
     {
-        [FunctionName("PostMessageToQueue")]
-        public static async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = null)] HttpRequest req,
-            ILogger log)
+        private readonly ILogger<PostMessageToQueue> _logger;
+        private readonly CloudQueueClient _cloudQueueClient;
+        private readonly IConfiguration _config;
+
+        public PostMessageToQueue(
+            ILogger<PostMessageToQueue> logger,
+            CloudQueueClient cloudQueueClient,
+            IConfiguration config)
         {
-            log.LogInformation("C# HTTP trigger function processed a request.");
+            _logger = logger;
+            _cloudQueueClient = cloudQueueClient;
+            _config = config;
+        }
 
-            string name = req.Query["name"];
+        [FunctionName("PostMessageToQueue")]
+        public async Task<IActionResult> Run(
+            [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "QueueClient")] HttpRequest req)
+        {
+            IActionResult actionResult = null;
 
-            string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
-            dynamic data = JsonConvert.DeserializeObject(requestBody);
-            name = name ?? data?.name;
+            try
+            {
+                // Generate fake readings
+                var fakeReadings = new Faker<DeviceReading>()
+                    .RuleFor(i => i.ReadingId, (fake) => Guid.NewGuid().ToString())
+                    .RuleFor(i => i.Temperature, (fake) => Math.Round(fake.Random.Decimal(0.00m, 150.00m), 2))
+                    .RuleFor(i => i.Location, (fake) => fake.PickRandom(new List<string> { "New Zealand", "United Kingdom", "Canada" }))
+                    .Generate(10);
 
-            string responseMessage = string.IsNullOrEmpty(name)
-                ? "This HTTP triggered function executed successfully. Pass a name in the query string or in the request body for a personalized response."
-                : $"Hello, {name}. This HTTP triggered function executed successfully.";
+                CloudQueue queue = _cloudQueueClient.GetQueueReference(_config["QueueName"]);
 
-            return new OkObjectResult(responseMessage);
+                queue.CreateIfNotExists();
+
+                foreach (var reading in fakeReadings)
+                {
+                    var jsonPayload = JsonConvert.SerializeObject(reading);
+                    CloudQueueMessage cloudQueueMessage = new CloudQueueMessage(jsonPayload);
+                    queue.AddMessage(cloudQueueMessage);
+                }
+
+                actionResult = new OkResult();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Exception thrown: {ex.Message}");
+                actionResult = new StatusCodeResult(StatusCodes.Status500InternalServerError);
+            }
+
+            return actionResult;
         }
     }
 }

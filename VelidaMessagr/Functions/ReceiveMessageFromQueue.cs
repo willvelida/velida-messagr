@@ -5,12 +5,20 @@ using Microsoft.Extensions.Logging;
 
 namespace VelidaMessagr.Functions
 {
-    public static class ReceiveMessageFromQueue
+    public class ReceiveMessageFromQueue
     {
-        [FunctionName("ReceiveMessageFromQueue")]
-        public static void Run([QueueTrigger("myqueue-items", Connection = "")]string myQueueItem, ILogger log)
+        private readonly ILogger<ReceiveMessageFromQueue> _logger;
+
+        public ReceiveMessageFromQueue(
+            ILogger<ReceiveMessageFromQueue> logger)
         {
-            log.LogInformation($"C# Queue trigger function processed: {myQueueItem}");
+            _logger = logger;
+        }
+
+        [FunctionName("ReceiveMessageFromQueue")]
+        public void Run([QueueTrigger("velidaqueue", Connection = "StorageConnectionString")]string myQueueItem)
+        {
+            _logger.LogInformation($"Queue item processed: {myQueueItem}");
         }
     }
 }

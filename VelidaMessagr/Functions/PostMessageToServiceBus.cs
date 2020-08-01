@@ -7,29 +7,59 @@ using Microsoft.Azure.WebJobs.Extensions.Http;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using Microsoft.Azure.ServiceBus;
+using Bogus;
+using VelidaMessagr.Models;
+using System.Collections.Generic;
+using System.Text;
 
 namespace VelidaMessagr.Functions
 {
-    public static class PostMessageToServiceBus
+    public class PostMessageToServiceBus
     {
-        [FunctionName("PostMessageToServiceBus")]
-        public static async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = null)] HttpRequest req,
-            ILogger log)
+        private readonly ILogger<PostMessageToServiceBus> _logger;
+        private readonly TopicClient _topicClient;
+
+        public PostMessageToServiceBus(
+            ILogger<PostMessageToServiceBus> logger,
+            TopicClient topicClient)
         {
-            log.LogInformation("C# HTTP trigger function processed a request.");
+            _logger = logger;
+            _topicClient = topicClient;
+        }
 
-            string name = req.Query["name"];
+        [FunctionName("PostMessageToServiceBus")]
+        public async Task<IActionResult> Run(
+            [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "ServiceBus")] HttpRequest req)
+        {
+            IActionResult result = null;
 
-            string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
-            dynamic data = JsonConvert.DeserializeObject(requestBody);
-            name = name ?? data?.name;
+            try
+            {
+                // Generate fake readings
+                var fakeReadings = new Faker<DeviceReading>()
+                    .RuleFor(i => i.ReadingId, (fake) => Guid.NewGuid().ToString())
+                    .RuleFor(i => i.Temperature, (fake) => Math.Round(fake.Random.Decimal(0.00m, 150.00m), 2))
+                    .RuleFor(i => i.Location, (fake) => fake.PickRandom(new List<string> { "New Zealand", "United Kingdom", "Canada" }))
+                    .Generate(10);
 
-            string responseMessage = string.IsNullOrEmpty(name)
-                ? "This HTTP triggered function executed successfully. Pass a name in the query string or in the request body for a personalized response."
-                : $"Hello, {name}. This HTTP triggered function executed successfully.";
+                foreach (var reading in fakeReadings)
+                {
+                    var jsonPayload = JsonConvert.SerializeObject(reading);
+                    var message = new Message(Encoding.UTF8.GetBytes(jsonPayload));
+                    await _topicClient.SendAsync(message);
+                    _logger.LogInformation($"Sending message: {message.Body}");
+                }
 
-            return new OkObjectResult(responseMessage);
+                result = new OkResult();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Exception thrown: {ex.Message}");
+                result = new StatusCodeResult(StatusCodes.Status500InternalServerError);
+            }
+
+            return result;
         }
     }
 }
